@@ -16,8 +16,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.Errors;
-import org.springframework.validation.FieldError;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -37,28 +35,10 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepositoy categoryRepository;
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
-    private final ProductImageService productImageService;
 
     private final ProhibitionKeywordRepositoy prohibitionKeywordRepositoy;
 
     private final static String COOKIE = "alreadyViewCookie";
-
-    //상품등록 시 유효성 및 중복 체크
-    //유효성 검사에 실패한 필드는 key 값과 에러 메시지를 응답
-    //Key : valid_{productAddDto.필드명}
-    //Message : ProductAddDTO에서 작성한 annotation의 message 값
-    @Transactional(readOnly = true)
-    @Override
-    public Map<String, String> validatorHandling(Errors errors) {
-        Map<String, String> validatorResult = new HashMap<>();
-
-        //유효성 검사에 실패한 필드 목록을 받음
-        for (FieldError error : errors.getFieldErrors()) {
-            String validKeyName = String.format("valid_%s", error.getField());
-            validatorResult.put(validKeyName, error.getDefaultMessage());
-        }
-        return validatorResult;
-    }
 
     //상품 등록
     @Override
@@ -156,6 +136,14 @@ public class ProductServiceImpl implements ProductService {
         productRepository.deleteById(productId);
     }
 
+    //카테고리 전체 상품 조회
+    @Override
+    public List<ProductListDTO> getProductCategoryList(Long start, Long end) {
+        return productRepository.findByCategoryIdBetween(start,end).stream().
+                map(product -> new ProductListDTO(product))
+                .collect(Collectors.toList());
+    }
+
     //전체 상품 조회
     @Override
     public List<ProductListDTO> getProductList() {
@@ -164,10 +152,24 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
     }
 
+    //검색에 따른 조회(제목,카테고리,내용)
+    @Override
+    public List<ProductListDTO> getSearchList(String subject,String content) {
+        return productRepository.findBySubjectContainingOrContentContaining(subject,content).stream()
+                .map(product -> new ProductListDTO(product))
+                .collect(Collectors.toList());
+    }
+
     //상품 하나에 대한 데이터
     @Override
     public ProductDTO getProductDTO(Long productId) {
         return productRepository.findById(productId).map(ProductDTO::new).orElse(null);
+    }
+
+    //상품 하나에 대한 데이터
+    @Override
+    public ProductFindDTO getProductFindDTO(Long productId) {
+        return productRepository.findById(productId).map(ProductFindDTO::new).orElse(null);
     }
 
     //이미지리스트
